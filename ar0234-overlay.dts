@@ -15,7 +15,7 @@
  * async notifier wait for a lens driver that this camera does not have.
  *
  * Labels referenced from the base device tree (all present in the dtsi):
- *   &i2c1 &csi2_dphy1 &ext_cam_clk &cam_avdd &cam_dovdd &cam_dvdd
+ *   &i2c1 &csi2_dphy1 &ext_cam_clk &cam_avdd &cam_dovdd &cam_dvdd &gpio3
  *
  * Not verified on hardware.
  */
@@ -44,12 +44,25 @@
 				/*
 				 * Same rails the OV8858 node uses:
 				 * avdd 2.8 V, dovdd 1.8 V, dvdd 1.2 V.
-				 * No reset/power GPIO exists in the base node,
-				 * so none is described here.
 				 */
 				vana-supply = <&cam_avdd>;
 				vdig-supply = <&cam_dovdd>;
 				vddl-supply = <&cam_dvdd>;
+
+				/*
+				 * Pin 11 of the 15-pin connector (CAM_IO0) is the
+				 * module power enable and is wired to the board's
+				 * CAM0_PWDN net. The driver drives its "reset" GPIO
+				 * high while the sensor is powered, which is the
+				 * level the module needs.
+				 *
+				 * <&gpio3 2 0> = GPIO3_A2, active high
+				 * (2 = RK_PA2, 0 = GPIO_ACTIVE_HIGH; numbers are
+				 * used because this overlay is built without the
+				 * kernel include files).
+				 * GPIO3_A2 = CAM0_PWDN, from the board schematic.
+				 */
+				reset-gpios = <&gpio3 2 0>;
 
 				rotation = <0>;
 				orientation = <2>;
