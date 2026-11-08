@@ -991,24 +991,18 @@ static int ar0234_get_selection(struct v4l2_subdev *sd,
 
 /*
  * Rockchip CSI-2 D-PHY / CIF / ISP query the lane configuration with this
- * callback. NOTE: the exact prototype and the use of config->flags depend on
- * the Rockchip 6.1 kernel headers, see the notes delivered with this driver.
+ * callback. In this kernel struct v4l2_mbus_config follows the mainline
+ * layout: lanes and flags live in bus.mipi_csi2.
  */
 static int ar0234_get_mbus_config(struct v4l2_subdev *sd, unsigned int pad,
 				  struct v4l2_mbus_config *config)
 {
 	struct ar0234 *ar0234 = to_ar0234(sd);
-	u32 val;
-
-	if (ar0234->hw_config.num_data_lanes == 2)
-		val = V4L2_MBUS_CSI2_2_LANE;
-	else
-		val = V4L2_MBUS_CSI2_4_LANE;
-
-	val |= V4L2_MBUS_CSI2_CHANNEL_0 | V4L2_MBUS_CSI2_CONTINUOUS_CLOCK;
 
 	config->type = V4L2_MBUS_CSI2_DPHY;
-	config->flags = val;
+	config->bus.mipi_csi2.num_data_lanes = ar0234->hw_config.num_data_lanes;
+	/* No NONCONTINUOUS_CLOCK flag set: continuous clock (to be verified) */
+	config->bus.mipi_csi2.flags = 0;
 
 	return 0;
 }
