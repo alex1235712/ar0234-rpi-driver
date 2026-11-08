@@ -2,18 +2,19 @@
 /*
  * AR0234 (Kurokesu) on the LubanCat CSI0 connector - first bring-up overlay.
  *
- * Modelled on rk356x-lubancat-csi0-ov8858-1632x1224-30fps-overlay.dts.
+ * Modelled on rk356x-lubancat-csi0-ov8858-1632x1224-30fps-overlay.dts, but
+ * based on what rk3568-lubancat-csi2.dtsi really contains:
  *
- * The OV8858 overlay only flips "status" because the base device tree
- * already contains a complete, disabled OV8858 node on &i2c1 (clock, pinctrl,
- * power-domain, reset/power GPIOs, supplies and the endpoint wired to the
- * CSI-2 D-PHY). This overlay re-uses that node as the AR0234: it keeps all
- * the board wiring and only replaces what identifies the sensor.
+ *   CSI0 = &i2c1 -> sensor -> &csi2_dphy0 (port@0, 2 data lanes) -> rkisp_vir0
  *
- * Only the labels used by the OV8858 overlay (&ov8858, &i2c1) are referenced,
- * because those are the only ones known to exist in the base DTB.
+ * A NEW sensor node is created instead of re-using the &ov8858 node, because
+ * that node carries "lens-focus = <&dw9714>", which would make the sensor's
+ * async notifier wait for a lens driver that this camera does not have.
  *
- * Not verified on hardware, see the notes delivered with this file.
+ * Labels referenced from the base device tree (all present in the dtsi):
+ *   &i2c1 &csi2_dphy0 &ext_cam_clk &cam_avdd &cam_dovdd &cam_dvdd
+ *
+ * Not verified on hardware.
  */
 /dts-v1/;
 /plugin/;
@@ -23,43 +24,67 @@
 		target = <&i2c1>;
 		__overlay__ {
 			status = "okay";
+
+			ar0234: ar0234@10 {
+				compatible = "onnn,ar0234cs";
+				status = "okay";
+				reg = <0x10>;
+
+				/* 24 MHz fixed clock defined in the base dtsi */
+				clocks = <&ext_cam_clk>;
+				clock-names = "xvclk";
+
+				/*
+				 * Same rails the OV8858 node uses:
+				 * avdd 2.8 V, dovdd 1.8 V, dvdd 1.2 V.
+				 * No reset/power GPIO exists in the base node,
+				 * so none is described here.
+				 */
+				vana-supply = <&cam_avdd>;
+				vdig-supply = <&cam_dovdd>;
+				vddl-supply = <&cam_dvdd>;
+
+				rotation = <0>;
+				orientation = <2>;
+
+				/* Rockchip module information (mandatory) */
+				rockchip,camera-module-index = <0>;
+				rockchip,camera-module-facing = "back";
+				rockchip,camera-module-name = "kurokesu";
+				rockchip,camera-module-lens-name = "default";
+
+				port {
+					ar0234_out: endpoint {
+						remote-endpoint = <&dphy0_in_ar0234>;
+						clock-lanes = <0>;
+						data-lanes = <1 2>;
+						/*
+						 * The FIRST value selects the
+						 * driver configuration:
+						 *   450000000 -> 10-bit
+						 *   360000000 ->  8-bit
+						 */
+						link-frequencies =
+							/bits/ 64 <450000000>;
+					};
+				};
+			};
 		};
 	};
 
 	fragment@1 {
-		target = <&ov8858>;
+		target = <&csi2_dphy0>;
 		__overlay__ {
 			status = "okay";
 
-			/* Make the ar0234 driver bind instead of ov8858 */
-			compatible = "onnn,ar0234cs";
-
-			/* AR0234 I2C address (the OV8858 node uses 0x36) */
-			reg = <0x10>;
-
-			/* Rockchip module information, read by the driver
-			 * and used by rkaiq to pick the IQ file */
-			rockchip,camera-module-index = <0>;
-			rockchip,camera-module-facing = "back";
-			rockchip,camera-module-name = "kurokesu";
-			rockchip,camera-module-lens-name = "default";
-
-			port {
-				endpoint {
-					/*
-					 * AR0234 on a 15-pin CSI connector
-					 * uses 2 data lanes.
-					 */
-					data-lanes = <1 2>;
-
-					/*
-					 * The FIRST value selects the driver
-					 * configuration:
-					 *   450000000 -> 10-bit (SGRBG10)
-					 *   360000000 ->  8-bit (SGRBG8)
-					 */
-					link-frequencies =
-						/bits/ 64 <450000000>;
+			ports {
+				port@0 {
+					/* 0x1..0xa are used by other sensors */
+					dphy0_in_ar0234: endpoint@b {
+						reg = <0xb>;
+						remote-endpoint = <&ar0234_out>;
+						data-lanes = <1 2>;
+					};
 				};
 			};
 		};
