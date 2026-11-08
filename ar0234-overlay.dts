@@ -5,14 +5,17 @@
  * Modelled on rk356x-lubancat-csi0-ov8858-1632x1224-30fps-overlay.dts, but
  * based on what rk3568-lubancat-csi2.dtsi really contains:
  *
- *   CSI0 = &i2c1 -> sensor -> &csi2_dphy0 (port@0, 2 data lanes) -> rkisp_vir0
+ *   CSI0 = &i2c1 -> sensor -> &csi2_dphy1 (port@0, split mode, 2 lanes) -> rkisp_vir0
+ *
+ * Variant for the "csi2-double" dtsi (csi2_dphy0 disabled, csi2_dphy1 used).
+ * For the single-camera dtsi use the overlay that targets &csi2_dphy0.
  *
  * A NEW sensor node is created instead of re-using the &ov8858 node, because
  * that node carries "lens-focus = <&dw9714>", which would make the sensor's
  * async notifier wait for a lens driver that this camera does not have.
  *
  * Labels referenced from the base device tree (all present in the dtsi):
- *   &i2c1 &csi2_dphy0 &ext_cam_clk &cam_avdd &cam_dovdd &cam_dvdd
+ *   &i2c1 &csi2_dphy1 &ext_cam_clk &cam_avdd &cam_dovdd &cam_dvdd
  *
  * Not verified on hardware.
  */
@@ -59,7 +62,7 @@
 
 				port {
 					ar0234_out: endpoint {
-						remote-endpoint = <&dphy0_in_ar0234>;
+						remote-endpoint = <&dphy1_in_ar0234>;
 						clock-lanes = <0>;
 						data-lanes = <1 2>;
 						/*
@@ -77,7 +80,7 @@
 	};
 
 	fragment@1 {
-		target = <&csi2_dphy0>;
+		target = <&csi2_dphy1>;
 		__overlay__ {
 			status = "okay";
 
@@ -92,9 +95,9 @@
 					#address-cells = <1>;
 					#size-cells = <0>;
 
-					/* 0x1..0xa are used by other sensors */
-					dphy0_in_ar0234: endpoint@b {
-						reg = <0xb>;
+					/* 0x1..0x9 are used by other sensors */
+					dphy1_in_ar0234: endpoint@a {
+						reg = <0xa>;
 						remote-endpoint = <&ar0234_out>;
 						data-lanes = <1 2>;
 					};
