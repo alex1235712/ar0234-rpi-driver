@@ -23,6 +23,10 @@
 	fragment@0 {
 		target = <&i2c1>;
 		__overlay__ {
+			/* Same values as the base i2c1 node; tells dtc that
+			 * child "reg" is a 1-cell I2C address */
+			#address-cells = <1>;
+			#size-cells = <0>;
 			status = "okay";
 
 			ar0234: ar0234@10 {
@@ -77,8 +81,17 @@
 		__overlay__ {
 			status = "okay";
 
+			/* Same values as the base dtsi; needed so dtc
+			 * accepts the 1-cell "reg" of port@0 / endpoint */
 			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
 				port@0 {
+					reg = <0>;
+					#address-cells = <1>;
+					#size-cells = <0>;
+
 					/* 0x1..0xa are used by other sensors */
 					dphy0_in_ar0234: endpoint@b {
 						reg = <0xb>;
