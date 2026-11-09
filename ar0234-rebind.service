@@ -1,0 +1,18 @@
+[Unit]
+Description=Connect AR0234 sensor to Rockchip ISP (re-bind csi2-dphy1 and rkisp-vir0)
+# Run only when the AR0234 device tree overlay is active
+ConditionPathExists=/sys/bus/i2c/devices/1-0010
+After=systemd-modules-load.service systemd-udev-trigger.service
+Wants=systemd-udev-trigger.service
+# Finish before anything that opens the camera nodes.
+# Units listed here that do not exist are simply ignored.
+Before=rkaiq_3A.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/ar0234-rebind.sh
+RemainAfterExit=yes
+TimeoutStartSec=60
+
+[Install]
+WantedBy=multi-user.target
