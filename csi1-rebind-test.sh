@@ -6,7 +6,7 @@
 # Re-binds the CSI1 camera pipeline of LubanCat-1IO so the ISP can pick up
 # the AR0234 on i2c5 that was loaded too late:
 #
-#   ar0234 (5-0010) -> csi2-dphy2 -> mipi-csi2 -> rkcif_mipi_lvds
+#   ar0234 (5-0010) -> csi2_dphy2 -> mipi_csi2 -> rkcif_mipi_lvds
 #                   -> rkcif_mipi_lvds_sditf -> rkisp-vir1
 #
 # WARNING: the Rockchip csi2-dphy driver does not unregister its async
@@ -26,10 +26,38 @@ PLAT=/sys/bus/platform/devices
 STATE=/tmp/csi1-rebind.drivers      # remembers which driver owns each device
 STEP_DELAY=2
 
-# Upstream -> downstream. Unbind runs in reverse order, bind in this order.
-CHAIN="csi2-dphy2 fdfb0000.mipi-csi2 rkcif_mipi_lvds rkcif_mipi_lvds_sditf rkisp-vir1"
+# Upstream -> downstream, as device tree LABELS. They are resolved to the
+# real platform device names at run time, so the script does not depend on
+# how the kernel names the devices. Unbind runs in reverse order.
+LABELS="csi2_dphy2 mipi_csi2 rkcif_mipi_lvds rkcif_mipi_lvds_sditf rkisp_vir1"
 
 log() { echo "csi1-rebind: $*"; }
+
+# Device tree label -> platform device name (empty if none)
+resolve() {
+	sym="/proc/device-tree/__symbols__/$1"
+	[ -e "$sym" ] || return 0
+	path=$(tr -d '\000' < "$sym")
+	for dev in /sys/bus/platform/devices/*; do
+		node=$(readlink -f "$dev/of_node" 2>/dev/null) || continue
+		case "$node" in
+		*/devicetree/base"$path")
+			basename "$dev"
+			return 0
+			;;
+		esac
+	done
+}
+
+CHAIN=""
+for l in $LABELS; do
+	d=$(resolve "$l")
+	if [ -z "$d" ]; then
+		log "WARNING: no platform device for label '$l'"
+		continue
+	fi
+	CHAIN="$CHAIN $d"
+done
 
 reverse() {
 	out=""
