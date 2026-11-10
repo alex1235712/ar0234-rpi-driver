@@ -1,0 +1,140 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * AR0234 (Kurokesu) on the LubanCat-1IO CSI1 connector (cam1).
+ *
+ * Modelled on rk356x-lubancat-csi1-ov8858-1632x1224-30fps-overlay.dts and
+ * on the cam1 path of rk3568-lubancat-csi2-double.dtsi:
+ *
+ *   &i2c5 -> sensor -> &csi2_dphy2 (port@0, 2 lanes) -> &mipi_csi2
+ *         -> &rkcif_mipi_lvds -> &rkcif_mipi_lvds_sditf -> &rkisp_vir1
+ *
+ * Differences from the ov8858 overlay:
+ *  - a NEW sensor node is created (the cam1_ov8858 node carries
+ *    "lens-focus = <&cam1_dw9714>", which this camera does not have);
+ *  - cam1_dw9714 is NOT enabled;
+ *  - the D-PHY gets a new input endpoint for the AR0234 (0x1..0x5 are used).
+ *
+ * Labels are prefixed "cam1_" so this overlay can be loaded together with
+ * the CSI0 AR0234 overlay.
+ *
+ * Not verified on hardware.
+ */
+/dts-v1/;
+/plugin/;
+
+/ {
+	fragment@0 {
+		target = <&i2c5>;
+		__overlay__ {
+			/* Same as the base i2c5 node: 1-cell I2C address */
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+
+			cam1_ar0234: ar0234@10 {
+				compatible = "onnn,ar0234cs";
+				status = "okay";
+				reg = <0x10>;
+
+				/* 24 MHz fixed clock for cam1 in the base dtsi */
+				clocks = <&ext_cam1_clk>;
+				clock-names = "xvclk";
+
+				/* Same rails as the cam1_ov8858 node */
+				vana-supply = <&cam1_avdd>;
+				vdig-supply = <&cam1_dovdd>;
+				vddl-supply = <&cam1_dvdd>;
+
+				/*
+				 * Module power enable (pin 11, CAM_IO0) on the
+				 * CSI1 connector = GPIO3_A7 (board schematic).
+				 * The driver drives its "reset" GPIO high while
+				 * the sensor is powered.
+				 * <&gpio3 7 0>: 7 = RK_PA7, 0 = GPIO_ACTIVE_HIGH
+				 */
+				reset-gpios = <&gpio3 7 0>;
+
+				rotation = <0>;
+				orientation = <2>;
+
+				/* Rockchip module information; index 1 = cam1 */
+				rockchip,camera-module-index = <1>;
+				rockchip,camera-module-facing = "back";
+				rockchip,camera-module-name = "kurokesu";
+				rockchip,camera-module-lens-name = "default";
+
+				port {
+					cam1_ar0234_out: endpoint {
+						remote-endpoint = <&dphy2_in_ar0234>;
+						clock-lanes = <0>;
+						data-lanes = <1 2>;
+						/*
+						 * The FIRST value selects the
+						 * driver configuration:
+						 *   450000000 -> 10-bit
+						 *   360000000 ->  8-bit
+						 */
+						link-frequencies =
+							/bits/ 64 <450000000>;
+					};
+				};
+			};
+		};
+	};
+
+	fragment@1 {
+		target = <&csi2_dphy2>;
+		__overlay__ {
+			status = "okay";
+
+			/* Same values as the base dtsi; needed so dtc
+			 * accepts the 1-cell "reg" of port@0 / endpoint */
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				port@0 {
+					reg = <0>;
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					/* 0x1..0x5 are used by other sensors */
+					dphy2_in_ar0234: endpoint@6 {
+						reg = <6>;
+						remote-endpoint = <&cam1_ar0234_out>;
+						data-lanes = <1 2>;
+					};
+				};
+			};
+		};
+	};
+
+	/* The rest of the cam1 pipeline, as in the ov8858 csi1 overlay */
+	fragment@2 {
+		target = <&mipi_csi2>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@3 {
+		target = <&rkcif_mipi_lvds>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@4 {
+		target = <&rkcif_mipi_lvds_sditf>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@5 {
+		target = <&rkisp_vir1>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+};
